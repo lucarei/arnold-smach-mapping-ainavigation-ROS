@@ -1,0 +1,5 @@
+<launch>
+
+ <node pkg="aubo_camera" name="arm_local_cleaning" type="removing_vecchio"/>
+
+ </launch>

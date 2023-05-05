@@ -1,0 +1,180 @@
+<launch>
+
+   <!-- <env name="ROS_MASTER_URI" value="http://10.0.0.106:11311" /> -->
+
+  <node pkg="tonino_setup_tf" name="odrive_controller" type="class_move_odom_v3.py"/>
+  <node pkg="tonino_setup_tf" name="odometry_publisher" type="odom_class_v3.py"/>
+
+  <!-- <node name="rviz" pkg="rviz" type="rviz" required="true" args="-d $(find autonomous_navigation_pkg)/config/velodyne_2_rviz.rviz"/> -->
+
+  <!-- declare arguments with default values -->
+  <arg name="calibration" default="$(find velodyne_pointcloud)/params/VLP16db.yaml"/>
+  <arg name="device_ip" default="10.0.1.7" /> <!-- default è vuoto-->
+  <arg name="frame_id" default="velodyne" />
+  <arg name="manager" default="$(arg frame_id)_nodelet_manager" />
+  <arg name="max_range" default="130.0" /> <!--default 130.0 -->
+  <arg name="min_range" default="0.1" /> <!--default 0.4, a quanto pare è il massimo-->
+  <arg name="pcap" default="" />
+  <arg name="port" default="2368" />
+  <arg name="read_fast" default="false" />
+  <arg name="read_once" default="false" />
+  <arg name="repeat_delay" default="0.0" />
+  <arg name="rpm" default="600.0" /> <!--default 600.0 -->
+  <arg name="gps_time" default="false" />
+  <arg name="pcap_time" default="false" />
+  <arg name="cut_angle" default="-0.01" />
+  <arg name="timestamp_first_packet" default="false" />
+  <arg name="laserscan_ring" default="7" /> <!-- default -1, ad altezza telecamera usare 7, alla base 15 -->
+  <arg name="laserscan_resolution" default="0.007" /> <!--default 0.007 -->
+  <arg name="organize_cloud" default="false" />
+
+  <!-- start nodelet manager and driver nodelets -->
+  <include file="$(find velodyne_driver)/launch/nodelet_manager.launch">
+    <arg name="device_ip" value="$(arg device_ip)"/>
+    <arg name="frame_id" value="$(arg frame_id)"/>
+    <arg name="manager" value="$(arg manager)" />
+    <arg name="model" value="VLP16"/>
+    <arg name="pcap" value="$(arg pcap)"/>
+    <arg name="port" value="$(arg port)"/>
+    <arg name="read_fast" value="$(arg read_fast)"/>
+    <arg name="read_once" value="$(arg read_once)"/>
+    <arg name="repeat_delay" value="$(arg repeat_delay)"/>
+    <arg name="rpm" value="$(arg rpm)"/>
+    <arg name="gps_time" value="$(arg gps_time)"/>
+    <arg name="pcap_time" value="$(arg pcap_time)"/>
+    <arg name="cut_angle" value="$(arg cut_angle)"/>
+    <arg name="timestamp_first_packet" value="$(arg timestamp_first_packet)"/>
+  </include>
+
+  <!-- start transform nodelet -->
+  <include file="$(find velodyne_pointcloud)/launch/transform_nodelet.launch">
+    <arg name="model" value="VLP16"/>
+    <arg name="calibration" value="$(arg calibration)"/>
+    <arg name="manager" value="$(arg manager)" />
+    <arg name="fixed_frame" value="" />
+    <arg name="target_frame" value="" />
+    <arg name="max_range" value="$(arg max_range)"/>
+    <arg name="min_range" value="$(arg min_range)"/>
+    <arg name="organize_cloud" value="$(arg organize_cloud)"/>
+  </include>
+
+  <!-- start laserscan nodelet and the transform -->
+  <include file="$(find velodyne_pointcloud)/launch/laserscan_nodelet.launch">
+    <arg name="manager" value="$(arg manager)" />
+    <arg name="ring" value="$(arg laserscan_ring)"/>
+    <arg name="resolution" value="$(arg laserscan_resolution)"/>
+  </include>
+
+  <node pkg="tonino_setup_tf" name="velodyne_base_tf" type="tf_broadcaster"/>
+  
+
+  <node pkg="map_server" type="map_server" name="map_server" 
+    args="$(find autonomous_navigation_pkg)/maps/lab_polotec_aperta.yaml"/>
+
+    <!-- Arguments -->
+  <arg name="scan_topic"     default="scan"/>
+  <arg name="initial_pose_x" default="0.0"/>
+  <arg name="initial_pose_y" default="0.0"/>
+  <arg name="initial_pose_a" default="0.0"/>
+
+  <!-- AMCL -->
+  <node pkg="amcl" type="amcl" name="amcl">
+  </node>
+
+  <node pkg="rosservice" type="rosservice" name="global_loc" args="call --wait /global_localization" />
+
+  <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+   <!--<remap from="cmd_vel" to="kbot/base_controller/cmd_vel"/> -->
+   <!--<remap from="odom" to="kbot/base_controller/odom"/> -->
+    <rosparam file="$(find autonomous_navigation_pkg)/param/costmap_common_params.yaml" command="load" ns="global_costmap" /> 
+    <rosparam file="$(find autonomous_navigation_pkg)/param/costmap_common_params.yaml" command="load" ns="local_costmap" />
+    <rosparam file="$(find autonomous_navigation_pkg)/param/local_costmap_params.yaml" command="load" />
+    <rosparam file="$(find autonomous_navigation_pkg)/param/global_costmap_params.yaml" command="load" /> 
+    <rosparam file="$(find autonomous_navigation_pkg)/param/base_local_planner_params.yaml" command="load" />
+ </node>
+
+ <!-- realsense camera launch -->
+
+  <arg name="serial_no"             default=""/>
+  <arg name="json_file_path"        default=""/>
+  <arg name="camera"                default="camera"/>
+
+  <group ns="$(arg camera)">
+    <include file="$(find realsense2_camera)/launch/includes/nodelet.launch.xml">
+      <arg name="device_type"       value="d455"/>
+      <arg name="serial_no"         value="$(arg serial_no)"/>
+      <arg name="json_file_path"    value="$(arg json_file_path)"/>
+      <arg name="depth_fps"         value="5"/> <!--5, 15, 30-->
+      <arg name="color_fps"         value="5"/>
+      <arg name="depth_width"       value="848"/> <!--640 x 480,848 x 480, 1280 x 720-->
+      <arg name="depth_height"      value="480"/>
+      <arg name="color_width"       value="848"/> <!--640 x 480, 848 x 480, 1280 x 720-->
+      <arg name="color_height"      value="480"/>
+      <arg name="enable_depth"      value="true"/>
+      <arg name="enable_color"      value="true"/>
+      <arg name="enable_infra1"     value="false"/>
+      <arg name="enable_infra2"     value="false"/>
+      <arg name="enable_fisheye"    value="false"/>
+      <arg name="enable_gyro"       value="false"/>
+      <arg name="enable_accel"      value="false"/>
+      <arg name="enable_pointcloud" value="true"/>
+      <arg name="enable_sync"       value="true"/>
+      <!-- <param name="align_depth"     value="true"/> -->
+      <!-- <param name="clip_distance"   value="3.0"/> -->
+      <arg name="tf_prefix"         value="$(arg camera)"/>
+      <arg name="publish_odom_tf"   value="false"/>
+    </include>
+  </group>
+
+  <include file="$(find aubo_camera)/launch/final_kinect.launch" >
+  	</include>
+
+  <node pkg="toni_uvc_sanification" name="uvc_model_node" type="uvc_light_model"/>
+
+  <node pkg="toni_uvc_sanification" name="uvc_lamp_node" type="uvc_lamp_model"/>
+  
+
+  <node pkg="nodelet" type="nodelet" name="point_cloud_environment_assembler" args="standalone rtabmap_ros/point_cloud_assembler" output="log"> 
+    <remap from="cloud" to="/camera/depth/color/points"/>
+    <remap from="assembled_cloud"   to="/env_cloud_assembled"/> 
+
+    <param name="fixed_frame_id"       value="odom"/>  <!--normalmente ho messo odom-->
+    <param name="frame_id"             value="camera_link"/> 
+    <param name="assembling_time"     value="300"/> 
+    <param name="circular_buffer"     value="false"/>
+    <param name="linear_update"     value="0.50"/>  
+    <param name="angular_update"     value="0.78"/> <!--1.57 sono 90 gradi, 0.78 è buono -->
+    <param name="range_max"     value="6.0"/>
+  </node> 
+
+  <node pkg="nodelet" type="nodelet" name="point_cloud_uvc_assembler" args="standalone rtabmap_ros/point_cloud_assembler" output="log"> 
+    <remap from="cloud"       to="/uvc_pointcloud"/>
+    <remap from="assembled_cloud"   to="/uvc_cloud_assembled"/>
+
+    <param name="fixed_frame_id"       value="odom"/> <!-- normalmente ho messo odom-->
+    <param name="frame_id"             value=""/> 
+    <param name="assembling_time"     value="300"/> 
+    <param name="circular_buffer"     value="false"/>
+    <param name="linear_update"     value="0.005"/> 
+    <param name="angular_update"     value="0.005"/> 
+    <param name="range_max"     value="0"/>  
+  </node>
+
+  <node pkg="nodelet" type="nodelet" name="point_cloud_lamp_assembler" args="standalone rtabmap_ros/point_cloud_assembler" output="log"> 
+    <remap from="cloud"       to="/lamp_pointcloud"/>
+    <remap from="assembled_cloud"   to="/lamp_cloud_assembled"/>
+
+    <param name="fixed_frame_id"       value="odom"/> <!-- normalmente ho messo odom-->
+    <param name="frame_id"             value=""/> 
+    <param name="assembling_time"     value="300"/> 
+    <param name="circular_buffer"     value="false"/>
+    <param name="linear_update"     value="0.005"/> 
+    <param name="angular_update"     value="0.005"/> 
+    <param name="range_max"     value="0"/>  
+  </node>
+
+  <node pkg="toni_env_exploration" name="exploration_node" type="toni_env_exploration" output="screen"/>
+
+
+</launch>
+

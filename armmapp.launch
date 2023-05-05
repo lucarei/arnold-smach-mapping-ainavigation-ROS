@@ -1,0 +1,33 @@
+  <launch>
+  
+    <arg name ="delay" default="15.0" />
+   <node pkg="aubo_camera" type="initial_mapping.py" name="initial_mapping_move" launch-prefix="bash -c 'sleep $(arg delay); $0 $@'"/>
+
+
+   <node pkg="nodelet" type="nodelet" name="arm_point_cloud_assembler" args="standalone rtabmap_ros/point_cloud_assembler" output="screen"> 
+
+     <remap from="cloud" to="/camera/depth/color/points"/>
+
+    <param name="fixed_frame_id" type="string" value="odom"/> 
+    <param name="frame_id" type="string" value="camera_link"/>
+    <param name="assembling_time" type="double" value="600"/>  <!-- 600 funziona-->
+    <param name="circular_buffer" type="bool" value="true"/> 
+    <param name="voxel_size" type="double" value="0"/> 
+    <param name="linear_update" type="double" value="0.01"/>  <!-- 0 -->
+    <param name="angular_update" type="double" value="0.01"/> <!-- 0 -->
+    <param name="range_max" type="double" value="1.0"/>   
+    <param name="noise_radius" type="double" value="0"/>
+    <param name="noise_min_neighbors" type="int" value="0"/> 
+  </node> 
+
+<node pkg="octomap_server" type="octomap_server_node" name="octomap_publisher"> 
+    <remap from="occupied_cells_vis_array" to ="/move_group/display_contacts"/>
+    <remap from="cloud_in" to="/assembled_cloud"/>
+    <param name="frame_id" type="string" value="map"/>
+    <param name="base_frame_id" type="string" value="base_link"/>
+    <param name="occupancy_max_z" value="2"/>
+    
+  </node> 
+
+
+</launch>

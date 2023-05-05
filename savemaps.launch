@@ -1,0 +1,31 @@
+<launch>    
+    <!-- le pointclouds sono salvate all'interno della cartella .ros in home -->
+
+    <!-- <arg name="node_start_delay_env" default="375.0" />  -->
+  <node name="pointcloud_saver" pkg="pcl_ros" type="pointcloud_to_pcd"> <!-- launch-prefix="bash -c 'sleep $(arg node_start_delay_env); $0 $@' " -->
+    <param name="prefix"       value="assembled_cloud"/>
+    <param name="fixed_frame"  value="map"/>
+    <param name="binary"       value="true"/>
+    <param name="compressed"   value="true"/>
+    <remap from="input" to="/env_cloud_assembled"/>
+  </node>
+
+  <node name="uvc_dosage_saver" pkg="pcl_ros" type="pointcloud_to_pcd">
+    <param name="prefix"       value="uvc_cloud"/>
+    <param name="fixed_frame"  value="map"/>
+    <param name="binary"       value="true"/>
+    <param name="compressed"   value="true"/>
+    <remap from="input" to="/uvc_cloud_assembled"/> 
+  </node>
+
+  <node name="lamp_dosage_saver" pkg="pcl_ros" type="pointcloud_to_pcd">
+    <param name="prefix"       value="lamp_cloud"/>
+    <param name="fixed_frame"  value="map"/>
+    <param name="binary"       value="true"/>
+    <param name="compressed"   value="true"/>
+    <remap from="input" to="/lamp_cloud_assembled"/> 
+  </node>
+
+</launch>
+
+
